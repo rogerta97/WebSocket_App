@@ -11,6 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+class Server
+{
+	SOCKET s;
+	struct sockaddr_in bindAddr;
+};
+
 bool InitSockets()
 {
 	WSADATA wsaData;
@@ -77,21 +83,25 @@ int main(int argc, char **argv)
 	SOCKET s = CreateUDPSocket(); 
 
 	struct sockaddr_in bindAddr;
+	bindAddr.sin_family = AF_INET;
+	bindAddr.sin_port = htons(8000);
 	bindAddr.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	int enable = 1;
+	int ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
-	int setsock_result = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
-
-	if (setsock_result == SOCKET_ERROR)
+	if (ret == SOCKET_ERROR)
 		printWSErrorAndExit(error);
 
-	int bind_result = bind(s, (const struct sockaddr*)&bindAddr, sizeof(bindAddr));
+	ret = bind(s, (const struct sockaddr*)&bindAddr, sizeof(bindAddr));
 	
-	if (bind_result == SOCKET_ERROR)
+	if (ret == SOCKET_ERROR)
 		printWSErrorAndExit(error);
+
+	//ret = recvfrom(s, char * buf, int len, int flags, struct sockaddr * from, int *fromlen);)
 	
 	CloseSocket(s); 
 	CleanUpSockets();
 }
+
 

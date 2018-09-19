@@ -8,6 +8,9 @@
 #include "WinSock2.h"
 #include "Ws2tcpip.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
 bool InitSockets()
 {
 	WSADATA wsaData;
@@ -48,16 +51,46 @@ bool CloseSocket(SOCKET s)
 	return true;
 }
 
+void printWSErrorAndExit(const char *msg)
+{
+	wchar_t *s = NULL;
+	FormatMessageW(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
+		| FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		WSAGetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPWSTR)&s,
+		0,
+		NULL);
+	fprintf(stderr, "%s: %S\n", msg, s);
+	LocalFree(s);
+	system("pause");
+	exit(-1);
+}
+
 int main(int argc, char **argv)
 {
+	const char* error = "";
+
 	InitSockets(); 
 	SOCKET s = CreateUDPSocket(); 
 
 	struct sockaddr_in bindAddr;
 	bindAddr.sin_addr.S_un.S_addr = INADDR_ANY;
 
-	int bind_result = bind(s, (const struct sockaddr*)&bindAddr, sizeof(bindAddr));
+	int enable = 1;
 
+	int setsock_result = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
+
+	if (setsock_result == SOCKET_ERROR)
+		printWSErrorAndExit(error);
+
+	int bind_result = bind(s, (const struct sockaddr*)&bindAddr, sizeof(bindAddr));
+	
+	if (bind_result == SOCKET_ERROR)
+		printWSErrorAndExit(error);
+	
 	CloseSocket(s); 
 	CleanUpSockets();
 }

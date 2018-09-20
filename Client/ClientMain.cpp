@@ -8,6 +8,18 @@
 #include "WinSock2.h"
 #include "Ws2tcpip.h"
 
+#include <string>
+
+using namespace std; 
+
+struct Client
+{
+	SOCKET s; 
+	struct sockaddr_in remoteAddr;
+
+	int num_msg_sended = 0; 
+};
+
 bool InitSockets()
 {
 	WSADATA wsaData;
@@ -48,18 +60,64 @@ bool CloseSocket(SOCKET s)
 	return true;
 }
 
+void printWSErrorAndExit(const char *msg)
+{
+	wchar_t *s = NULL;
+	FormatMessageW(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM
+		| FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		WSAGetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPWSTR)&s,
+		0,
+		NULL);
+	fprintf(stderr, "%s: %S\n", msg, s);
+	LocalFree(s);
+	system("pause");
+	exit(-1);
+}
+
 int main(int argc, char **argv)
 {
+	const char* error = "";
+	Client client; 
+
 	InitSockets();
-	SOCKET s = CreateUDPSocket();
+	client.s = CreateUDPSocket();
 
-	struct sockaddr_in remoteAddr;
-	remoteAddr.sin_family = AF_INET;
-	remoteAddr.sin_port = htons(8000);
+	client.remoteAddr.sin_family = AF_INET;
+	client.remoteAddr.sin_port = htons(8000);
 	const char *remoteAddrStr = "127.0.0.1";
-	inet_pton(AF_INET, remoteAddrStr, &remoteAddr.sin_addr);
+	inet_pton(AF_INET, remoteAddrStr, &client.remoteAddr.sin_addr);
 
-	CloseSocket(s);
+	int ret; 
+	while(client.num_msg_sended < 5)
+	{
+		const char* message = "Ping"; 
+		ret = sendto(client.s, message, sizeof(message), 0, (struct sockaddr*)&client.remoteAddr, sizeof(client.remoteAddr));
+	
+		if (ret == SOCKET_ERROR)
+			printWSErrorAndExit(error);
+		else
+		{
+			const char* msg_received = new char[10];
+			msg_received = ""; 
+
+			while (msg_received == "")
+			{
+				int size = sizeof(client.remoteAddr);
+				ret = recvfrom(client.s, (char*)msg_received, 10, 0, (struct sockaddr*)&client.remoteAddr, &size);
+
+				if (ret == SOCKET_ERROR)
+					printWSErrorAndExit(error);
+			}
+		}
+
+		client.num_msg_sended++;
+	}
+
+	CloseSocket(client.s);
 	CleanUpSockets();
 }
 

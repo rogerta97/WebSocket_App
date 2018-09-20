@@ -10,11 +10,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
-class Server
+using namespace std; 
+
+struct Server
 {
 	SOCKET s;
 	struct sockaddr_in bindAddr;
+
+	string curr_message; 
+	int num_connections; 
 };
 
 bool InitSockets()
@@ -78,29 +84,40 @@ void printWSErrorAndExit(const char *msg)
 int main(int argc, char **argv)
 {
 	const char* error = "";
+	Server server; 
 
 	InitSockets(); 
-	SOCKET s = CreateUDPSocket(); 
-
-	struct sockaddr_in bindAddr;
-	bindAddr.sin_family = AF_INET;
-	bindAddr.sin_port = htons(8000);
-	bindAddr.sin_addr.S_un.S_addr = INADDR_ANY;
+	server.s = CreateUDPSocket();
+	
+	server.bindAddr.sin_family = AF_INET;
+	server.bindAddr.sin_port = htons(8000);
+	server.bindAddr.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	int enable = 1;
-	int ret = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
+	int ret = setsockopt(server.s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
 
 	if (ret == SOCKET_ERROR)
 		printWSErrorAndExit(error);
 
-	ret = bind(s, (const struct sockaddr*)&bindAddr, sizeof(bindAddr));
+	ret = bind(server.s, (const struct sockaddr*)&server.bindAddr, sizeof(server.bindAddr));
 	
 	if (ret == SOCKET_ERROR)
 		printWSErrorAndExit(error);
 
-	//ret = recvfrom(s, char * buf, int len, int flags, struct sockaddr * from, int *fromlen);)
+	while (server.num_connections < 5)
+	{
+		char* buf = new char[10];
+		int size = sizeof(sockaddr);
+		ret = recvfrom(server.s, buf, 10, 0, (struct sockaddr*)&server.bindAddr, &size);
+
+		server.curr_message = buf; 
+		if (server.curr_message == "") continue; 
+
+		server.num_connections++; 
+	}
+		
 	
-	CloseSocket(s); 
+	CloseSocket(server.s); 
 	CleanUpSockets();
 }
 

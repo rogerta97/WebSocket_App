@@ -14,11 +14,14 @@
 
 using namespace std; 
 
+enum SocketType {UDP, TCP};
+
 struct Server
 {
 	SOCKET s;
 	struct sockaddr_in bindAddr;
-
+	SocketType connection_type; 
+	
 	string curr_message; 
 	int num_connections; 
 };
@@ -84,11 +87,27 @@ void printWSErrorAndExit(const char *msg)
 int main(int argc, char **argv)
 {
 	const char* error = "";
-	Server server; 
+	Server server;
 
-	InitSockets(); 
-	server.s = CreateUDPSocket();
-	
+	InitSockets();
+
+	int mode;
+
+	printf("1.UDP\n2.TCP\n");
+	printf("Select connection mode:");
+	scanf_s("%d", &mode);
+
+	if (mode - 1 == UDP)
+	{
+		server.s = CreateUDPSocket();
+		server.connection_type = UDP;
+	}
+	else if (mode - 1 == TCP)
+	{
+		server.s = CreateTCPSocket();
+		server.connection_type = TCP;
+	}
+
 	server.bindAddr.sin_family = AF_INET;
 	server.bindAddr.sin_port = htons(8000);
 	server.bindAddr.sin_addr.S_un.S_addr = INADDR_ANY;
@@ -101,39 +120,80 @@ int main(int argc, char **argv)
 		printWSErrorAndExit(error);
 
 	ret = bind(server.s, (const struct sockaddr*)&server.bindAddr, sizeof(server.bindAddr));
-	
+
 	if (ret == SOCKET_ERROR)
 		printWSErrorAndExit(error);
 
-	while (server.num_connections < 5)
+	if (server.connection_type == UDP)
 	{
-		//Recieve Client Message
-		char* buf = new char[10];
-		int size = sizeof(sockaddr);
-		ret = recvfrom(server.s, buf, 10, 0, (struct sockaddr*)&server.bindAddr, &size);
+		
 
-		server.curr_message = buf;
-
-		if (server.curr_message == "")
-			continue;
-
-		//Send answer
-		const char* message = "Pong"; 
-
-		const char *remoteAddrStr = "127.0.0.1";
-		inet_pton(AF_INET, remoteAddrStr, &server.bindAddr.sin_addr);
-
-		ret = sendto(server.s, message, sizeof(message), 0, (struct sockaddr*)&server.bindAddr, sizeof(server.bindAddr));
-
-		if (ret != false)
+		while (server.num_connections < 5)
 		{
-			server.num_connections++;
-			printf("Message %d sended succesfully: %s \n", server.num_connections, buf); 
+			//Recieve Client Message
+			char* buf = new char[10];
+			int size = sizeof(sockaddr);
+			ret = recvfrom(server.s, buf, 10, 0, (struct sockaddr*)&server.bindAddr, &size);
+
+			server.curr_message = buf;
+
+			if (server.curr_message == "")
+				continue;
+
+			//Send answer
+			const char* message = "Pong";
+
+			const char *remoteAddrStr = "127.0.0.1";
+			inet_pton(AF_INET, remoteAddrStr, &server.bindAddr.sin_addr);
+
+			ret = sendto(server.s, message, sizeof(message), 0, (struct sockaddr*)&server.bindAddr, sizeof(server.bindAddr));
+
+			if (ret != false)
+			{
+				server.num_connections++;
+				printf("Message %d sended succesfully (UDP): %s \n", server.num_connections, buf);
+			}
 		}
-			
 	}
-	
-	printf("DONE SERVER!"); 
+	else
+	{
+		//Connect server & client 
+		ret = listen(server.s, 1);
+
+		if (ret == SOCKET_ERROR)
+			printWSErrorAndExit(error);
+
+		printf("Server status set to Listen Mode...\n");
+		printf("Server is looking for connection...\n");
+
+		int size = sizeof(sockaddr);
+		ret = accept(server.s, (struct sockaddr*)&server.bindAddr, &size);
+
+		if (ret == SOCKET_ERROR)
+			printWSErrorAndExit(error);
+
+		printf("Server is connected.\n");
+
+		char* message = new char[10];
+
+		while (server.num_connections < 5)
+		{	
+			ret = recv(server.s, message, (int)strlen(message), 0);
+
+			if (ret == SOCKET_ERROR)
+				printWSErrorAndExit(error);
+
+			ret = send(server.s, "Pong", 10, 0);
+
+			if (ret == SOCKET_ERROR)
+				printWSErrorAndExit(error);
+
+			server.num_connections++;
+			printf("Message %d '%s' received and answered succesfully (TCP).", server.num_connections, message);
+		}
+
+	}
+	printf("DONE SERVER!\n"); 
 	system("pause"); 
 	CloseSocket(server.s); 
 	CleanUpSockets();

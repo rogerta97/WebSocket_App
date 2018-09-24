@@ -12,10 +12,13 @@
 
 using namespace std; 
 
+enum SocketType { UDP, TCP };
+
 struct Client
 {
 	SOCKET s; 
 	struct sockaddr_in remoteAddr;
+	SocketType connection_type; 
 
 	int num_msg_recived = 0; 
 };
@@ -84,7 +87,6 @@ int main(int argc, char **argv)
 	Client client; 
 
 	InitSockets();
-	client.s = CreateUDPSocket();
 
 	client.remoteAddr.sin_family = AF_INET;
 	client.remoteAddr.sin_port = htons(8000);
@@ -92,36 +94,82 @@ int main(int argc, char **argv)
 	inet_pton(AF_INET, remoteAddrStr, &client.remoteAddr.sin_addr);
 
 	int ret; 
-	while(client.num_msg_recived < 5)
+	int mode;
+
+	printf("1.UDP\n2.TCP\n");
+	printf("Select connection mode:");
+	scanf_s("%d", &mode);
+
+	if (mode - 1 == UDP)
 	{
-		const char* message = "Ping"; 
-		ret = sendto(client.s, message, sizeof(message), 0, (struct sockaddr*)&client.remoteAddr, sizeof(client.remoteAddr));
-	
-		if (ret == SOCKET_ERROR)
-			printWSErrorAndExit(error);
-		else
+		client.s = CreateUDPSocket();
+		client.connection_type = UDP;
+	}
+	else if (mode - 1 == TCP)
+	{
+		client.s = CreateTCPSocket();
+		client.connection_type = TCP;
+	}
+			
+	if (client.connection_type == UDP)
+	{
+		while (client.num_msg_recived < 5)
 		{
-			const char* msg_received = new char[10];
-			msg_received = ""; 
-	
-			char* buf = new char[10];
-			int size = sizeof(sockaddr);
-			ret = recvfrom(client.s, buf, 10, 0, (struct sockaddr*)&client.remoteAddr, &size);
+			const char* message = "Ping";
+			ret = sendto(client.s, message, sizeof(message), 0, (struct sockaddr*)&client.remoteAddr, sizeof(client.remoteAddr));
 
 			if (ret == SOCKET_ERROR)
 				printWSErrorAndExit(error);
 			else
 			{
-				client.num_msg_recived++;
-				printf("Message %d received from server: %s \n", client.num_msg_recived, buf);
+				const char* msg_received = new char[10];
+				msg_received = "";
+
+				char* buf = new char[10];
+				int size = sizeof(sockaddr);
+				ret = recvfrom(client.s, buf, 10, 0, (struct sockaddr*)&client.remoteAddr, &size);
+
+				if (ret == SOCKET_ERROR)
+					printWSErrorAndExit(error);
+				else
+				{
+					client.num_msg_recived++;
+					printf("Message %d received from server (UDP): %s \n", client.num_msg_recived, buf);
+				}
+
 			}
-						
 		}
 	}
+	else
+	{
+		int size = sizeof(sockaddr);
+		ret = connect(client.s, (struct sockaddr*)&client.remoteAddr, sizeof(client.remoteAddr));
 
-	printf("DONE CLIENT!");
+		if (ret == SOCKET_ERROR)
+			printWSErrorAndExit(error);
+
+		printf("Client connected to server"); 
+
+		const char* buf = "Ping"; 
+		ret = send(client.s, buf, (int)strlen(buf), 0);
+
+		if (ret == SOCKET_ERROR)
+			printWSErrorAndExit(error);
+
+		char* message = new char[10];
+		ret = recv(client.s, message, 10, 0);
+
+		if (ret == SOCKET_ERROR)
+			printWSErrorAndExit(error);
+
+		printf("Message %d sended and received '%s' succesfully.");
+		
+	}
+
+	printf("DONE CLIENT!\n");
 	system("pause");
 	CloseSocket(client.s);
 	CleanUpSockets();
 }
+
 

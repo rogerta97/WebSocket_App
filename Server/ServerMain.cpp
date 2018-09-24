@@ -92,6 +92,7 @@ int main(int argc, char **argv)
 	server.bindAddr.sin_family = AF_INET;
 	server.bindAddr.sin_port = htons(8000);
 	server.bindAddr.sin_addr.S_un.S_addr = INADDR_ANY;
+	server.num_connections = 0;
 
 	int enable = 1;
 	int ret = setsockopt(server.s, SOL_SOCKET, SO_REUSEADDR, (const char*)&enable, sizeof(int));
@@ -106,17 +107,34 @@ int main(int argc, char **argv)
 
 	while (server.num_connections < 5)
 	{
+		//Recieve Client Message
 		char* buf = new char[10];
 		int size = sizeof(sockaddr);
 		ret = recvfrom(server.s, buf, 10, 0, (struct sockaddr*)&server.bindAddr, &size);
 
-		server.curr_message = buf; 
-		if (server.curr_message == "") continue; 
+		server.curr_message = buf;
 
-		server.num_connections++; 
+		if (server.curr_message == "")
+			continue;
+
+		//Send answer
+		const char* message = "Pong"; 
+
+		const char *remoteAddrStr = "127.0.0.1";
+		inet_pton(AF_INET, remoteAddrStr, &server.bindAddr.sin_addr);
+
+		ret = sendto(server.s, message, sizeof(message), 0, (struct sockaddr*)&server.bindAddr, sizeof(server.bindAddr));
+
+		if (ret != false)
+		{
+			server.num_connections++;
+			printf("Message %d sended succesfully: %s \n", server.num_connections, buf); 
+		}
+			
 	}
-		
 	
+	printf("DONE SERVER!"); 
+	system("pause"); 
 	CloseSocket(server.s); 
 	CleanUpSockets();
 }

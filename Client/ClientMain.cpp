@@ -17,7 +17,7 @@ struct Client
 	SOCKET s; 
 	struct sockaddr_in remoteAddr;
 
-	int num_msg_sended = 0; 
+	int num_msg_recived = 0; 
 };
 
 bool InitSockets()
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
 	inet_pton(AF_INET, remoteAddrStr, &client.remoteAddr.sin_addr);
 
 	int ret; 
-	while(client.num_msg_sended < 5)
+	while(client.num_msg_recived < 5)
 	{
 		const char* message = "Ping"; 
 		ret = sendto(client.s, message, sizeof(message), 0, (struct sockaddr*)&client.remoteAddr, sizeof(client.remoteAddr));
@@ -103,20 +103,24 @@ int main(int argc, char **argv)
 		{
 			const char* msg_received = new char[10];
 			msg_received = ""; 
+	
+			char* buf = new char[10];
+			int size = sizeof(sockaddr);
+			ret = recvfrom(client.s, buf, 10, 0, (struct sockaddr*)&client.remoteAddr, &size);
 
-			while (msg_received == "")
+			if (ret == SOCKET_ERROR)
+				printWSErrorAndExit(error);
+			else
 			{
-				int size = sizeof(client.remoteAddr);
-				ret = recvfrom(client.s, (char*)msg_received, 10, 0, (struct sockaddr*)&client.remoteAddr, &size);
-
-				if (ret == SOCKET_ERROR)
-					printWSErrorAndExit(error);
+				client.num_msg_recived++;
+				printf("Message %d received from server: %s \n", client.num_msg_recived, buf);
 			}
+						
 		}
-
-		client.num_msg_sended++;
 	}
 
+	printf("DONE CLIENT!");
+	system("pause");
 	CloseSocket(client.s);
 	CleanUpSockets();
 }

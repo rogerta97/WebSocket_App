@@ -29,10 +29,34 @@ void handleIncomingData()
 	// Input buffer
 	const int inputBufferLen = 1300;
 	char inputBuffer[inputBufferLen];
-
-	// TODO:
-
 	// Call recv
+	char* buffer = new char[10];
+	int ret = recv(g_Socket, buffer, 10, 0);
+
+	if (ret == SOCKET_ERROR)
+	{
+		int lastError = WSAGetLastError();
+		if (lastError != WSAEWOULDBLOCK)
+		{
+			logSocketErrorAndExit("client_recieve");
+		}
+
+		if (lastError == WSAECONNRESET)
+		{
+			g_End = true; 
+		}
+	}
+
+	else if (ret == 0)
+	{
+		g_End = true; 
+	}
+
+	else
+	{
+		printf("%s", buffer);
+	}
+
 
 	// Handle errors
 	// - WSAEWOULDBLOCK (do nothing)
@@ -46,12 +70,21 @@ void handleIncomingData()
 void handleOutgoingData()
 {
 	// Output buffer
-	const char *outputBuffer = "Input packet";
+	const char *outputBuffer = "GoodBye";
 	const int outputBufferLen = strlen(outputBuffer) + 1;
 
 	// TODO:
-
 	// Call send
+	int ret = send(g_Socket, outputBuffer, 10, 0);
+
+	if (ret == SOCKET_ERROR)
+	{
+		int lastError = WSAGetLastError();
+		if (lastError != WSAEWOULDBLOCK)
+		{
+			logSocketErrorAndExit("send");
+		}
+	}
 
 	// Handle errors
 	// - WSAEWOULDBLOCK (do nothing)
@@ -84,7 +117,11 @@ void client(const char *serverAddressStr, int port)
 	}
 	
 	// Set non-blocking socket
-	// TODO
+	u_long nonBlocking = 1;
+	res = ioctlsocket(g_Socket, FIONBIO, &nonBlocking);
+	if (res == SOCKET_ERROR) {
+		logSocketErrorAndExit("non_block");
+	}
 
 	// Loop
 	while (!g_End)
@@ -102,7 +139,7 @@ void client(const char *serverAddressStr, int port)
 		std::cout << "Client iteration " << iteration++ << std::endl;
 
 		// Wait a second
-		Sleep(1000);
+		Sleep(2000);
 	}
 
 	// Delete

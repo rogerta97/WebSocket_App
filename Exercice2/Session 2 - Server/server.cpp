@@ -25,45 +25,97 @@ void logSocketErrorAndExit(const char *msg)
 	exit(-1);
 }
 
-void handleIncomingData()
+void handleIncomingData(sockaddr_in adress)
 {
 	// Input buffer
 	const int inputBufferLen = 1300;
 	char inputBuffer[inputBufferLen];
 
 	// Create a new socket set
-	// TODO
+	fd_set readfds;
+	FD_ZERO(&readfds);
 
 	// Fill the set
 	for (auto s : sockets) {
-		// TODO
+		FD_SET(s, &readfds);
 	}
 
 	// Call select
-	// TODO
+	struct timeval timeout;
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 0;
+
+	int res = select(0, &readfds, nullptr, nullptr, &timeout);
+	if (res == SOCKET_ERROR) {
+		logSocketErrorAndExit("select 4 read");
+	}
+	else
+		readfds.fd_count++; 
 
 	// List to mark disconnected sockets
 	std::list<SOCKET> disconnectedSockets;
 
+	struct sockaddr_in serverAddress;
+
 	// Read selected sockets
-	for (auto s : sockets)
+	for (auto s = sockets.begin(); s != sockets.end(); s++)
 	{
 		// Check if s is ready for read
-		if (...) {
+		if (FD_ISSET((*s), &readfds)) {
 
-			// Is the server socket ?
-			if (...) {
+			// Is the server socket 
+			if ((*s) == serverSocket) {
 				// Accept a new connection
-				// TODO
+				int size = sizeof(sockaddr); 
+				SOCKET new_socket = accept((*s), (sockaddr*)&adress, &size);
 
+				if (new_socket == SOCKET_ERROR)
+				{
+					int lastError = WSAGetLastError();
+
+
+					if (lastError != WSAEWOULDBLOCK)
+					{
+						logSocketErrorAndExit("accept");
+					}
+				}
+			
+				// TODO
 				// Add the new socket to our list sockets
+				else
+					sockets.push_back(new_socket); 
 				// TODO
 			}
 
 			// Is a client socket
-			else {
+			else 
+			{
 
 				// Call recv
+				int bytesRecv = recv((*s), inputBuffer, inputBufferLen, 0);
+				if (bytesRecv == SOCKET_ERROR)
+				{
+					int lastError = WSAGetLastError();
+
+					if (lastError != WSAEWOULDBLOCK) {
+						// Other error handling
+					}
+
+					if (lastError == WSAECONNRESET) {
+						disconnectedSockets.push_back((*s));
+					}
+				
+			
+				}
+				else if (bytesRecv == 0) // Success
+				{
+					disconnectedSockets.push_back((*s));
+				}
+				else
+				{
+					printf("%s", inputBuffer); 
+				}
+					
 				// TODO
 
 				// Handle errors
@@ -90,14 +142,27 @@ void handleOutgoingData()
 	const int outputBufferLen = strlen(outputBuffer) + 1;
 
 	// Create a new socket set
+	fd_set writefds;
+	FD_ZERO(&writefds);
 	// TODO
 
 	// Fill the set
 	for (auto s : sockets) {
-		// TODO
+		FD_SET(s, &writefds);
 	}
 
 	// Call select
+	struct timeval timeout;
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 0;
+
+	int res = select(0, nullptr, &writefds, nullptr, &timeout);
+	if (res == SOCKET_ERROR) {
+		logSocketErrorAndExit("select 4 read");
+	}
+	//else
+	//	writefds.fd_count++; 
+
 	// TODO
 
 	// List to mark disconnected sockets
@@ -107,12 +172,22 @@ void handleOutgoingData()
 	for (auto s : sockets)
 	{
 		// Check if s is ready for send
-		if (...) {
-
+		if (FD_ISSET(s, &writefds)) 
+		{		
 			// TODO:
+			int ret = send(s, "Hello", 10, 0); 
 
+			if (ret == SOCKET_ERROR)
+			{
+				int lastError = WSAGetLastError();
+
+				if (lastError != WSAEWOULDBLOCK)
+				{
+					logSocketErrorAndExit("send");
+				}
+			}
 			// Call send
-
+		
 			// Handle errors
 			// - WSAEWOULDBLOCK (do nothing)
 			// - WSAECONNRESET (client disconnected, so insert s into disconnectedSockets)
@@ -138,6 +213,12 @@ void server(int port)
 	serverSocket = socket(AF_INET, SOCK_STREAM, 0);
 	if (serverSocket == INVALID_SOCKET) {
 		logSocketErrorAndExit("socket");
+	}
+
+	u_long nonBlocking = 1;
+	res = ioctlsocket(serverSocket, FIONBIO, &nonBlocking);
+	if (res == SOCKET_ERROR) {
+		logSocketErrorAndExit("non_block");
 	}
 
 	// Add the socket to the Socket list
@@ -169,7 +250,7 @@ void server(int port)
 	// Loop
 	while (true)
 	{
-		handleIncomingData();
+		handleIncomingData(serverAddress);
 
 		// handleInput();
 		// simulatePhysics();
@@ -195,6 +276,8 @@ void server(int port)
 		logSocketErrorAndExit("WSACleanup");
 	}
 }
+
+
 
 int main(int argc, char **argv)
 {

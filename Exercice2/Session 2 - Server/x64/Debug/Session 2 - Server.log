@@ -1,0 +1,5 @@
+﻿  server.cpp
+c:\users\fullmac\documents\github\websocket_app\exercice2\session 2 - server\server.cpp(58): warning C4101: 'serverAddress': variable local sin referencia
+c:\users\fullmac\documents\github\websocket_app\exercice2\session 2 - server\server.cpp(142): warning C4267: 'inicializando': conversión de 'size_t' a 'int'; posible pérdida de datos
+c:\users\fullmac\documents\github\websocket_app\exercice2\session 2 - server\server.cpp(142): warning C4267: 'inicializando': conversión de 'size_t' a 'const int'; posible pérdida de datos
+  Session 2 - Server.vcxproj -> C:\Users\FULLMAC\Documents\GitHub\WebSocket_App\Exercice2\x64\Debug\Session 2 - Server.exe
